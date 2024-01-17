@@ -1,25 +1,47 @@
-use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
-use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
-use bevy::render::render_resource::WgpuFeatures;
-use bevy::render::settings::{RenderCreation, WgpuSettings};
-use bevy::render::RenderPlugin;
-use dual_contouring::{dc_meshing, DCBounds, DCInput};
+/*
+░█▀▀░█▀█░█░█░█▀▀░█▀▄░█▀▀░░░█▀▀░█░█░█▀█░█▄█░█▀█░█░░░█▀▀
+░▀▀█░█▀▀░█▀█░█▀▀░█▀▄░█▀▀░░░█▀▀░▄▀▄░█▀█░█░█░█▀▀░█░░░█▀▀
+░▀▀▀░▀░░░▀░▀░▀▀▀░▀░▀░▀▀▀░░░▀▀▀░▀░▀░▀░▀░▀░▀░▀░░░▀▀▀░▀▀▀
 
-fn main() {
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
-                    features: WgpuFeatures::POLYGON_MODE_LINE,
-                    ..default()
-                }),
-            }),
-            WireframePlugin,
-        ))
-        .add_systems(Startup, setup)
-        .run();
-}
+This example creates a mesh based on an SDF for a sphere.
+It uses the bevy game engine to create a simple scene and
+render the mesh.
+
+Control + Mouse Drag orbits the camera.
+Right Click + Mouse Drag pans the camera.
+Scroll Wheel adjusts the zoom level.
+*/
+
+/*
+░▀█▀░█▄█░█▀█░█▀█░█▀▄░▀█▀░█▀▀
+░░█░░█░█░█▀▀░█░█░█▀▄░░█░░▀▀█
+░▀▀▀░▀░▀░▀░░░▀▀▀░▀░▀░░▀░░▀▀▀
+*/
+
+use bevy::{
+    pbr::wireframe::{Wireframe, WireframeColor, WireframePlugin},
+    prelude::*,
+    render::{
+        mesh::{Indices, PrimitiveTopology},
+        render_resource::WgpuFeatures,
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
+};
+use bevy_infinite_grid::{
+    GridShadowCamera, InfiniteGridBundle, InfiniteGridPlugin, InfiniteGridSettings,
+};
+use dual_contouring::{dc_meshing, DCBounds, DCInput};
+use smooth_bevy_cameras::{
+    controllers::orbit::{OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin},
+    LookTransformPlugin,
+};
+
+/*
+░█▀▄░█▀▀░█▀▀░▀█▀░█▀█░▀█▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
+░█░█░█▀▀░█▀▀░░█░░█░█░░█░░░█░░░█░░█░█░█░█░▀▀█
+░▀▀░░▀▀▀░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
+ */
 
 #[derive(Default)]
 struct SphereFunction;
@@ -27,14 +49,14 @@ struct SphereFunction;
 impl DCInput for SphereFunction {
     fn get_bounds(&self) -> DCBounds {
         DCBounds {
-            x: (-10, 10),
-            y: (-10, 10),
-            z: (-10, 10),
+            x: (-12, 12),
+            y: (-12, 12),
+            z: (-12, 12),
         }
     }
 
     fn get_value(&self, x: i32, y: i32, z: i32) -> f32 {
-        f32::sqrt((x * x + y * y + z * z) as f32) - 8.
+        f32::sqrt((x * x + y * y + z * z) as f32) - 8.5
     }
 
     fn get_gradient(&self, x: i32, y: i32, z: i32) -> [f32; 3] {
@@ -42,16 +64,29 @@ impl DCInput for SphereFunction {
     }
 }
 
+/*
+░█▀▀░█▀▀░▀█▀░█░█░█▀█
+░▀▀█░█▀▀░░█░░█░█░█▀▀
+░▀▀▀░▀▀▀░░▀░░▀▀▀░▀░░
+*/
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // Create grid for referencing scale
+    commands.spawn(InfiniteGridBundle::default());
+
     // Create camera in Bevy
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(16., 10., 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn(Camera3dBundle::default())
+        .insert(OrbitCameraBundle::new(
+            OrbitCameraController::default(),
+            Vec3::new(10., 10., 0.),
+            Vec3::new(0., 0., 0.),
+            Vec3::Y,
+        ));
 
     // Create light in Bevy
     commands.spawn(DirectionalLightBundle {
@@ -59,7 +94,10 @@ fn setup(
         ..default()
     });
 
+    // Run the meshing algorithm on our sphere function
     let raw_output = dc_meshing(SphereFunction::default());
+
+    // Define a Bevy mesh using the output from our meshing algorithm
     let mesh = Mesh::new(PrimitiveTopology::TriangleList)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, raw_output.vertices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, raw_output.normals)
@@ -74,5 +112,30 @@ fn setup(
             ..default()
         },
         Wireframe,
+        WireframeColor { color: Color::RED },
     ));
+}
+
+/*
+░█▄█░█▀█░▀█▀░█▀█
+░█░█░█▀█░░█░░█░█
+░▀░▀░▀░▀░▀▀▀░▀░▀
+*/
+
+fn main() {
+    App::new()
+        .add_plugins((
+            DefaultPlugins.set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    features: WgpuFeatures::POLYGON_MODE_LINE,
+                    ..default()
+                }),
+            }),
+            WireframePlugin,
+            LookTransformPlugin,
+            OrbitCameraPlugin::default(),
+            InfiniteGridPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .run();
 }

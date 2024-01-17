@@ -34,9 +34,11 @@ pub fn dc_meshing(input: impl DCInput) -> DCOutput {
     let mut index_list = Vec::<u32>::new();
     let mut vertex_map = HashMap::<IVec3, u32>::new();
 
+    // Note that these direction vectors cannot be ordered different than
+    // the following, otherwise the mesh quads will face inwards and not outwards
     let planes = [
         (IVec3::X, IVec3::Y),
-        (IVec3::X, IVec3::Z),
+        (IVec3::Z, IVec3::X),
         (IVec3::Y, IVec3::Z),
     ];
 
@@ -92,7 +94,7 @@ fn dc_place_vertex(input: &impl DCInput, x: i32, y: i32, z: i32) -> Option<[f32;
 }
 
 fn sign_change(a: f32, b: f32) -> bool {
-    a.max(b) > 0. && a.min(b) < 0.
+    a.max(b) > 0. && a.min(b) < 0. || (a == 0. && b != 0.) || (a != 0. && b == 0.)
 }
 
 fn check_quad(
@@ -103,12 +105,16 @@ fn check_quad(
     basis_2: IVec3,
     mut index_list: &mut Vec<u32>,
 ) {
+    let bounds = input.get_bounds();
+
     let top_left = position - basis_1;
     let top_right = position;
     let bottom_left = position - basis_1 - basis_2;
     let bottom_right = position - basis_2;
 
-    if (position + basis_1 + basis_2).min_element() > 0
+    if bottom_left.x > bounds.x.0
+        && bottom_left.y > bounds.y.0
+        && bottom_left.z > bounds.z.0
         && vertex_map.contains_key(&top_left)
         && vertex_map.contains_key(&bottom_left)
         && vertex_map.contains_key(&bottom_right)
