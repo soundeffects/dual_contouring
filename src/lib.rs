@@ -16,7 +16,7 @@ pub trait DCInput {
 pub struct DCOutput {
     pub vertices: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
-    pub indices: Vec<usize>,
+    pub indices: Vec<u32>,
 }
 
 pub fn dc_meshing(input: impl DCInput) -> DCOutput {
@@ -31,8 +31,8 @@ pub fn dc_meshing(input: impl DCInput) -> DCOutput {
 
     let mut vertex_buffer = Vec::<[f32; 3]>::new();
     let mut normal_buffer = Vec::<[f32; 3]>::new();
-    let mut index_list = Vec::<usize>::new();
-    let mut vertex_map = HashMap::<IVec3, usize>::new();
+    let mut index_list = Vec::<u32>::new();
+    let mut vertex_map = HashMap::<IVec3, u32>::new();
 
     let planes = [
         (IVec3::X, IVec3::Y),
@@ -45,7 +45,7 @@ pub fn dc_meshing(input: impl DCInput) -> DCOutput {
             for z in bounds.z.0..(bounds.z.1 - 1) {
                 if let Some(vertex) = dc_place_vertex(&input, x, y, z) {
                     let position = IVec3::new(x, y, z);
-                    vertex_map.insert(position, vertex_buffer.len());
+                    vertex_map.insert(position, vertex_buffer.len() as u32);
                     vertex_buffer.push(vertex);
                     normal_buffer.push(input.get_gradient(x, y, z));
 
@@ -97,11 +97,11 @@ fn sign_change(a: f32, b: f32) -> bool {
 
 fn check_quad(
     input: &impl DCInput,
-    vertex_map: &HashMap<IVec3, usize>,
+    vertex_map: &HashMap<IVec3, u32>,
     position: IVec3,
     basis_1: IVec3,
     basis_2: IVec3,
-    mut index_list: &mut Vec<usize>,
+    mut index_list: &mut Vec<u32>,
 ) {
     let top_left = position - basis_1;
     let top_right = position;
@@ -125,11 +125,11 @@ fn check_quad(
 }
 
 fn create_quad(
-    index_list: &mut Vec<usize>,
-    top_left: usize,
-    top_right: usize,
-    bottom_left: usize,
-    bottom_right: usize,
+    index_list: &mut Vec<u32>,
+    top_left: u32,
+    top_right: u32,
+    bottom_left: u32,
+    bottom_right: u32,
     clockwise: bool,
 ) {
     if clockwise {
