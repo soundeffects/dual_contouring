@@ -1,5 +1,5 @@
-# Dual Contouring
-General purpose dual-contouring isosurface extraction, released as a Rust crate.
+# Unfinished: Dual Contouring
+An attempt at general purpose dual-contouring isosurface extraction, with the implementation being incomplete.
 
 See a screenshot of the `sphere` example below. Run it yourself `cargo run --example sphere`.
 
